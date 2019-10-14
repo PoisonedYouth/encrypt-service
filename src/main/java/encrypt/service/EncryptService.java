@@ -6,8 +6,13 @@ import io.micronaut.runtime.server.EmbeddedServer;
 import org.mongodb.morphia.Datastore;
 import org.mongodb.morphia.query.Query;
 import org.mongodb.morphia.query.UpdateOperations;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.inject.Singleton;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -16,18 +21,18 @@ import java.util.Optional;
 @Singleton
 public class EncryptService {
 
-	private final MongoService mongoService;
+	private static final Logger logger = LoggerFactory.getLogger(EncryptService.class);
+
 	private Datastore dataStore;
 
 	public EncryptService(MongoService mongoService) {
-		this.mongoService = mongoService;
 		this.dataStore = mongoService.getDataStore();
 	}
 
 	public User addEncryptedMessage(String username, String text) {
 		User user = findUserByName(username);
 
-		String encrypted = new StringBuilder(text).reverse().toString();
+		String encrypted = createEncryptedString(text);
 		Message message = new Message(text, encrypted);
 		dataStore.save(message);
 
@@ -38,6 +43,18 @@ public class EncryptService {
 		} else {
 			user.getMessageList().add(message);
 			return updateUser(user);
+		}
+	}
+
+	private String createEncryptedString(String plainText) {
+		MessageDigest digest;
+		try {
+			digest = MessageDigest.getInstance("SHA-256");
+			byte[] encodedHash = digest.digest(plainText.getBytes(StandardCharsets.UTF_8));
+			return new String(encodedHash, StandardCharsets.UTF_8);
+		} catch (NoSuchAlgorithmException e) {
+			logger.error("Unable to create encrypted string", e);
+			return null;
 		}
 	}
 

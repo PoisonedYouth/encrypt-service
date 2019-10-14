@@ -1,0 +1,64 @@
+version: "3"
+services:
+  consul:
+    image: consul:1.5.3
+    container_name: consul
+    ports:
+      - "8300:32768"
+      - "8301:32770"
+      - "8302:32769"
+      - "8500:8500"
+      - "8600:32767"
+    networks:
+      - local
+    restart: unless-stopped
+  mongo:
+    image: bitnami/mongodb:4.2.0
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - //c/temp:/data/db
+    networks:
+      - local
+  zipkin:
+    image: openzipkin/zipkin:2.14.0
+    container_name: zipkin
+    ports:
+      - "9411:9411"
+    environment:
+      - STORAGE_TYPE=mysql
+      - MYSQL_HOST=mysql
+    networks:
+      - local
+    depends_on:
+      - storage
+    restart: unless-stopped
+  dependencies:
+    image: openzipkin/zipkin-dependencies:2.1.0
+    container_name: dependencies
+    environment:
+      - STORAGE_TYPE=mysql
+      - MYSQL_HOST=mysql
+      - MYSQL_USER=zipkin
+      - MYSQL_PASS=zipkin
+      - JAVA_OPTS=-Xms1G -Xmx1G
+    networks:
+      - local
+    restart: unless-stopped
+    depends_on:
+      - storage
+  storage:
+    image: openzipkin/zipkin-mysql:2.14.0
+    container_name: mysql
+    ports:
+      - "3306:3306"
+    environment:
+      - ZIPKIN_VERSION=2.14.0
+    volumes:
+      - //c/temp:/var/lib/mysql
+    networks:
+      - local
+    restart: unless-stopped
+networks:
+  local:
